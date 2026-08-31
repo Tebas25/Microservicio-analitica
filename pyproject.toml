@@ -33,3 +33,4 @@ markers = [
     "integration: pruebas que requieren servicios externos (Mongo, etc.)",
 ]
 asyncio_mode = "auto"
+pythonpath = ["."]
