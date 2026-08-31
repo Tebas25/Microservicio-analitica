@@ -13,7 +13,7 @@ def test_transacciones_entitu_defaults():
     assert tx.ingreso == 12.30
 
 
-@pytest.mask.unit
+@pytest.mark.unit
 def test_trasacciones_entity_object_id_conversion():
     oid = ObjectId
     tx = TransaccionesEntity(_id=oid, item="Vodka", ingreso=14.0)
