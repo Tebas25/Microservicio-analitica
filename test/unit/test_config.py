@@ -15,6 +15,6 @@ def test_setting_reads_connection_string(monkeypatch):
 
 @pytest.mark.unit
 def test_settings_project_name():
-    import app.core.config as settings
+    import app.core.config as config_module
 
-    assert settings.PROJECT_NAME == "Microservicio Analítica"
+    assert config_module.settings.PROJECT_NAME == "Microservicio Analítica"
