@@ -50,4 +50,4 @@ jobs:
       env:
         CONNECTION_STRING: "mongodb://localhost:27017"
       run: |
-        uv run pytest test/integration/ -m "integration" --cov=app --cov-append --cov-report=term-missing --cov-fail-under=80
+        uv run pytest test/integration/ --cov=app --cov-append --cov-report=term-missing --cov-fail-under=80
