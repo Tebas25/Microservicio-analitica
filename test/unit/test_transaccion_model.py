@@ -15,6 +15,6 @@ def test_transacciones_entitu_defaults():
 
 @pytest.mark.unit
 def test_trasacciones_entity_object_id_conversion():
-    oid = ObjectId
+    oid = ObjectId()
     tx = TransaccionesEntity(_id=oid, item="Vodka", ingreso=14.0)
     assert tx.id == str(oid)

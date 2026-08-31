@@ -10,7 +10,7 @@ PyObjectId = Annotated[
 
 class TransaccionesEntity(BaseModel):
     id: Optional[PyObjectId] = Field(default=None, alias="_id")
-    fecha: datetime = Field(default_factory=datetime.now(timezone.utc))
+    fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     item: str
     ingreso: float
 
