@@ -43,8 +43,10 @@ jobs:
         uv run flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
 
     - name: Pruebas Unitarias
+      env:
+        CONNECTION_STRING: "mongodb://localhost:27017"
       run: |
-        uv run pytest test/unit/ -m "unit" --cov=app --cov-report=term-missing
+        uv run pytest test/unit/ --cov=app --cov-report=term-missing
 
     - name: Pruebas de Integración
       env:

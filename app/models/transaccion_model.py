@@ -8,7 +8,7 @@ PyObjectId = Annotated[
 ]
 
 
-class TransaccionesEntity(BaseModel):
+class TransactionsEntity(BaseModel):
     id: Optional[PyObjectId] = Field(default=None, alias="_id")
     fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     item: str
