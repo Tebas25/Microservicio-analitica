@@ -18,3 +18,8 @@ app = FastAPI(
 )
 
 app.include_router(api_v1_router)
+
+
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "Estructura base configurada y en línea."}
