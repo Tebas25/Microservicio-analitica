@@ -10,6 +10,6 @@ class TipoEvento(str, Enum):
     ERROR_SISTEMA = "ErrorSistema"
 
 
-class EventosDTO(BaseModel):
+class EventsDTO(BaseModel):
     tipo_evento: TipoEvento
     descripcion: str
