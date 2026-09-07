@@ -10,6 +10,7 @@ PyObjectId = Annotated[
 
 class EventsEntity(BaseModel):
     id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    evento_id: str
     fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     tipo_evento: str
     descripcion: str
