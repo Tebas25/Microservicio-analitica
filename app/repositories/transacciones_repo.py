@@ -11,7 +11,7 @@ class TransactionsRepository:
         result = await self.collection.insert_one(transactions_data)
         return str(result.inserted_id)
 
-    async def obtain_sales_metrics(self, event_id: str) -> dict:
+    async def obtain_sales_metrics(self, event_id: str, cobot_id: str) -> dict:
         """
         Obtener un resumen de ventas totales (USD)
         Obtener el total de bebidas servidas.
@@ -19,7 +19,7 @@ class TransactionsRepository:
         Obtener el último evento registrado, si es actividad normal o si ocurrió un errro en el sistema
         """
         pipeline = [
-            {"$match": {"evento_id": event_id}},
+            {"$match": {"evento_id": event_id, "cobot_id": cobot_id}},
             {
                 "$facet": {
                     "sales": [
@@ -34,7 +34,7 @@ class TransactionsRepository:
         cursor = await self.collection.aggregate(pipeline)
         result = await cursor.to_list(length=1)
 
-        facet = result[0] if result else {"sales": [], "drink_count": []}
+        facet = result[0] if result else {"sales": [], "drinks_count": []}
         total_sales = facet["sales"][0]["total"] if facet["sales"] else 0.0
         total_drinks = facet["drinks_count"][0]["total"] if facet["drinks_count"] else 0
 

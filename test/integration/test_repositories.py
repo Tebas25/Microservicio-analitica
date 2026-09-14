@@ -68,10 +68,40 @@ async def test_transactions_repository_sales_metrics():
         ]
     )
 
-    metrics = await repo.obtain_sales_metrics("TEST-EVT")
+    metrics = await repo.obtain_sales_metrics("TEST-EVT", "COBOT-01")
 
     assert metrics["total_sales"] == 15.0
     assert metrics["total_drinks"] == 2
+
+    await collection.delete_many({"evento_id": "TEST-EVT"})
+
+
+async def test_transactions_repository_sales_metrics_filters_by_cobot():
+    db = get_databse()
+    collection = db.get_collection("test_transactions_sales_cobot")
+    repo = TransactionsRepository(collection)
+
+    await collection.insert_many(
+        [
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Ron",
+                "ingreso": 10.0,
+            },
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-02",
+                "item": "Vodka",
+                "ingreso": 100.0,
+            },
+        ]
+    )
+
+    metrics = await repo.obtain_sales_metrics("TEST-EVT", "COBOT-01")
+
+    assert metrics["total_sales"] == 10.0
+    assert metrics["total_drinks"] == 1
 
     await collection.delete_many({"evento_id": "TEST-EVT"})
 
@@ -100,7 +130,7 @@ async def test_event_repository_get_active_time():
         ]
     )
 
-    first_date, last_date = await repo.get_active_time("TEST-EVT")
+    first_date, last_date = await repo.get_active_time("TEST-EVT", "COBOT-01")
 
     assert first_date is not None
     assert last_date is not None

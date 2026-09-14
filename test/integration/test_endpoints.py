@@ -46,12 +46,13 @@ async def test_create_event_endpoint(async_client):
 
 async def test_get_summary_endpoint(async_client):
     event_id = "TEST-SUMMARY-EVT"
+    cobot_id = "COBOT-01"
 
     await async_client.post(
         "/api/v1/analytics/transactions",
         json={
             "evento_id": event_id,
-            "cobot_id": "COBOT-01",
+            "cobot_id": cobot_id,
             "item": "Ron",
             "ingreso": 10.0,
         },
@@ -60,14 +61,14 @@ async def test_get_summary_endpoint(async_client):
         "/api/v1/analytics/events",
         json={
             "evento_id": event_id,
-            "cobot_id": "COBOT-01",
+            "cobot_id": cobot_id,
             "tipo_evento": "Warning",
             "descripcion": "Prueba",
         },
     )
 
     response = await async_client.get(
-        "/api/v1/analytics/summary", params={"event_id": event_id}
+        f"/api/v1/analytics/summary/{cobot_id}", params={"event_id": event_id}
     )
 
     assert response.status_code == 200

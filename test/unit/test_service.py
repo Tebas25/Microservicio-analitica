@@ -73,11 +73,15 @@ async def test_analytics_service_calculates_active_time_and_sales():
         transaction_repository=mock_transaction_repo,
     )
 
-    result = await service.obtain_transaction_metrics("EVT-001")
+    result = await service.obtain_transaction_metrics("EVT-001", "COBOT-01")
 
     assert result.total_sales == 100.5
     assert result.total_drinks_sold == 10
     assert result.active_time == "01:30:15"
+    mock_event_repo.get_active_time.assert_awaited_once_with("EVT-001", "COBOT-01")
+    mock_transaction_repo.obtain_sales_metrics.assert_awaited_once_with(
+        "EVT-001", "COBOT-01"
+    )
 
 
 async def test_analytics_service_handles_missing_dates():
@@ -95,7 +99,7 @@ async def test_analytics_service_handles_missing_dates():
         transaction_repository=mock_transaction_repo,
     )
 
-    result = await service.obtain_transaction_metrics("EVT-999")
+    result = await service.obtain_transaction_metrics("EVT-999", "COBOT-01")
 
     assert result.active_time == "00:00:00"
 
