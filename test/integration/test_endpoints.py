@@ -13,7 +13,12 @@ async def async_client():
 async def test_create_transaction_endpoint(async_client):
     response = await async_client.post(
         "/api/v1/analytics/transactions",
-        json={"evento_id": "EVT-001", "item": "Ron de prueba", "ingreso": 12.0},
+        json={
+            "evento_id": "EVT-001",
+            "cobot_id": "COBOT-01",
+            "item": "Ron de prueba",
+            "ingreso": 12.0,
+        },
     )
 
     assert response.status_code == 201
@@ -27,6 +32,7 @@ async def test_create_event_endpoint(async_client):
         "/api/v1/analytics/events",
         json={
             "evento_id": "EVT-001",
+            "cobot_id": "COBOT-01",
             "tipo_evento": "Warning",
             "descripcion": "Prueba de evento",
         },
@@ -43,11 +49,21 @@ async def test_get_summary_endpoint(async_client):
 
     await async_client.post(
         "/api/v1/analytics/transactions",
-        json={"item": "Ron", "ingreso": 10.0, "evento_id": event_id},
+        json={
+            "evento_id": event_id,
+            "cobot_id": "COBOT-01",
+            "item": "Ron",
+            "ingreso": 10.0,
+        },
     )
     await async_client.post(
         "/api/v1/analytics/events",
-        json={"tipo_evento": "Warning", "descripcion": "Prueba", "evento_id": event_id},
+        json={
+            "evento_id": event_id,
+            "cobot_id": "COBOT-01",
+            "tipo_evento": "Warning",
+            "descripcion": "Prueba",
+        },
     )
 
     response = await async_client.get(
@@ -59,3 +75,36 @@ async def test_get_summary_endpoint(async_client):
     assert "total_sales" in data
     assert "total_drinks_sold" in data
     assert "active_time" in data
+
+
+async def test_get_drinks_ranking_endpoint(async_client):
+    event_id = "TEST-RANKING-EVT"
+    cobot_id = "COBOT-TEST"
+
+    await async_client.post(
+        "/api/v1/analytics/transactions",
+        json={
+            "evento_id": event_id,
+            "cobot_id": cobot_id,
+            "item": "Ron",
+            "ingreso": 10.0,
+        },
+    )
+    await async_client.post(
+        "/api/v1/analytics/transactions",
+        json={
+            "evento_id": event_id,
+            "cobot_id": cobot_id,
+            "item": "Ron",
+            "ingreso": 8.0,
+        },
+    )
+
+    response = await async_client.get(
+        f"/api/v1/analytics/drinks-ranking/{cobot_id}", params={"event_id": event_id}
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data[0]["drink"] == "Ron"
+    assert data[0]["number"] == 2

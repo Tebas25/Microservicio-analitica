@@ -39,3 +39,13 @@ class TransactionsRepository:
         total_drinks = facet["drinks_count"][0]["total"] if facet["drinks_count"] else 0
 
         return {"total_sales": total_sales, "total_drinks": total_drinks}
+
+    async def obtain_drinks_ranking(self, event_id: str, cobot_id: str) -> dict:
+        """Obtener ranking de bebidas vendidas ordenadas de mayor a menor"""
+        pipeline = [
+            {"$match": {"evento_id": event_id, "cobot_id": cobot_id}},
+            {"$group": {"_id": "$item", "total": {"$sum": 1}}},
+            {"$sort": {"total": -1}},
+        ]
+        cursor = await self.collection.aggregate(pipeline)
+        return await cursor.to_list(length=None)

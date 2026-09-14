@@ -36,3 +36,12 @@ async def obtain_transactions_metrics(
     event_id: str, service: AnalyticsService = Depends(get_analytics_service)
 ) -> DashboardSummaryResponseDTO:
     return await service.obtain_transaction_metrics(event_id)
+
+
+@router.get("/drinks-ranking/{cobot_id}")
+async def obtain_drinks_ranking(
+    cobot_id: str,
+    event_id: str,
+    service: TransactionsService = Depends(get_transaction_service),
+) -> list:
+    return await service.obtain_drink_ranking(event_id, cobot_id)

@@ -12,5 +12,6 @@ class TipoEvento(str, Enum):
 
 class EventsDTO(BaseModel):
     evento_id: str
+    cobot_id: str
     tipo_evento: TipoEvento
     descripcion: str

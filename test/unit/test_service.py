@@ -13,7 +13,9 @@ async def test_transactions_service_create_transaction_calls_repository():
     mock_repo.create_transaction.return_value = "fake_id_123"
 
     service = TransactionsService(mock_repo)
-    dto = TransactionsDTO(evento_id="EVT-001", item="Ron", ingreso=15.5)
+    dto = TransactionsDTO(
+        evento_id="EVT-001", cobot_id="COBOT-01", item="Ron", ingreso=15.5
+    )
 
     result = await service.create_transaction(dto)
 
@@ -22,6 +24,7 @@ async def test_transactions_service_create_transaction_calls_repository():
 
     sent_dict = mock_repo.create_transaction.call_args.args[0]
     assert sent_dict["evento_id"] == "EVT-001"
+    assert sent_dict["cobot_id"] == "COBOT-01"
     assert sent_dict["item"] == "Ron"
     assert sent_dict["ingreso"] == 15.5
     assert "fecha" in sent_dict
@@ -34,7 +37,10 @@ async def test_events_service_create_event_calls_repository():
 
     service = EventService(mock_repo)
     dto = EventsDTO(
-        evento_id="EVT-001", tipo_evento=TipoEvento.WARNING, descripcion="Nivel bajo"
+        evento_id="EVT-001",
+        cobot_id="COBOT-01",
+        tipo_evento=TipoEvento.WARNING,
+        descripcion="Nivel bajo",
     )
 
     result = await service.create_event(dto)
@@ -44,6 +50,7 @@ async def test_events_service_create_event_calls_repository():
 
     sent_dict = mock_repo.create_event.call_args.args[0]
     assert sent_dict["evento_id"] == "EVT-001"
+    assert sent_dict["cobot_id"] == "COBOT-01"
     assert sent_dict["tipo_evento"] == "Warning"
     assert sent_dict["descripcion"] == "Nivel bajo"
     assert "fecha" in sent_dict
@@ -91,3 +98,20 @@ async def test_analytics_service_handles_missing_dates():
     result = await service.obtain_transaction_metrics("EVT-999")
 
     assert result.active_time == "00:00:00"
+
+
+async def test_transactions_service_obtain_drink_ranking():
+    mock_repo = AsyncMock()
+    mock_repo.obtain_drinks_ranking.return_value = [
+        {"_id": "Ron", "total": 5},
+        {"_id": "Vodka", "total": 3},
+    ]
+
+    service = TransactionsService(mock_repo)
+    result = await service.obtain_drink_ranking("EVT-001", "COBOT-01")
+
+    assert len(result) == 2
+    assert result[0].drink == "Ron"
+    assert result[0].number == 5
+    assert result[1].drink == "Vodka"
+    mock_repo.obtain_drinks_ranking.assert_awaited_once_with("EVT-001", "COBOT-01")

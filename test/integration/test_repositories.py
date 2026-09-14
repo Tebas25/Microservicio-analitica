@@ -9,7 +9,12 @@ async def test_transactions_repository_insert():
     collection = db.get_collection("test_transactions_repo")
     repo = TransactionsRepository(collection)
 
-    data = {"evento_id": "EVT-001", "item": "Vodka", "ingreso": 20.0}
+    data = {
+        "evento_id": "EVT-001",
+        "cobot_id": "COBOT-01",
+        "item": "Vodka",
+        "ingreso": 20.0,
+    }
     inserted_id = await repo.create_transaction(data)
 
     assert inserted_id is not None
@@ -27,6 +32,7 @@ async def test_event_repository_insert():
 
     data = {
         "evento_id": "EVT-001",
+        "cobot_id": "COBOT-01",
         "tipo_evento": "Warning",
         "descripcion": "Nivel bajo de stock",
     }
@@ -47,8 +53,18 @@ async def test_transactions_repository_sales_metrics():
 
     await collection.insert_many(
         [
-            {"evento_id": "TEST-EVT", "item": "Ron", "ingreso": 10.0},
-            {"evento_id": "TEST-EVT", "item": "Vodka", "ingreso": 5.0},
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Ron",
+                "ingreso": 10.0,
+            },
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Vodka",
+                "ingreso": 5.0,
+            },
         ]
     )
 
@@ -69,12 +85,14 @@ async def test_event_repository_get_active_time():
         [
             {
                 "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
                 "fecha": datetime(2026, 9, 6, 10, 0, 0, tzinfo=timezone.utc),
                 "tipo_evento": "InfoRobot",
                 "descripcion": "inicio",
             },
             {
                 "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
                 "fecha": datetime(2026, 9, 6, 11, 0, 0, tzinfo=timezone.utc),
                 "tipo_evento": "InfoRobot",
                 "descripcion": "fin",
@@ -87,5 +105,43 @@ async def test_event_repository_get_active_time():
     assert first_date is not None
     assert last_date is not None
     assert (last_date - first_date).total_seconds() == 3600
+
+    await collection.delete_many({"evento_id": "TEST-EVT"})
+
+
+async def test_transactions_repository_drinks_ranking():
+    db = get_databse()
+    collection = db.get_collection("test_transactions_ranking")
+    repo = TransactionsRepository(collection)
+
+    await collection.insert_many(
+        [
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Ron",
+                "ingreso": 10.0,
+            },
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Ron",
+                "ingreso": 8.0,
+            },
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Vodka",
+                "ingreso": 5.0,
+            },
+        ]
+    )
+
+    ranking = await repo.obtain_drinks_ranking("TEST-EVT", "COBOT-01")
+
+    assert ranking[0]["_id"] == "Ron"
+    assert ranking[0]["total"] == 2
+    assert ranking[1]["_id"] == "Vodka"
+    assert ranking[1]["total"] == 1
 
     await collection.delete_many({"evento_id": "TEST-EVT"})
