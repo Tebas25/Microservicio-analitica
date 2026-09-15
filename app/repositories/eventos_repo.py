@@ -1,5 +1,9 @@
 from pymongo.asynchronous.collection import AsyncCollection
 from typing import Any
+from typing import Any, Optional
+from datetime import datetime
+
+from app.schemas.eventos_dto import TipoEvento
 
 
 class EventRepository:
@@ -30,3 +34,28 @@ class EventRepository:
             return None, None
 
         return first_docs[0]["fecha"], last_docs[0]["fecha"]
+
+    async def get_events_filtered(
+        self,
+        cobot_id: str,
+        fecha_inicio: Optional[datetime] = None,
+        fecha_fin: Optional[datetime] = None,
+        tipos_evento: Optional[list[TipoEvento]] = None,
+    ) -> list[dict[str, Any]]:
+        query: dict[str, Any] = {"cobot_id": cobot_id}
+
+        if fecha_inicio or fecha_fin:
+            fecha_filter: dict[str, Any] = {}
+            if fecha_inicio:
+                fecha_filter["$gte"] = fecha_inicio
+            if fecha_fin:
+                fecha_filter["$lte"] = fecha_fin
+            query["fecha"] = fecha_filter
+
+        if tipos_evento:
+            # Convertimos los Enum a sus valores string planos para evitar
+            # problemas de serialización BSON
+            query["tipo_evento"] = {"$in": [t.value for t in tipos_evento]}
+
+        cursor = self.collection.find(query).sort("fecha", -1)
+        return await cursor.to_list(length=None)

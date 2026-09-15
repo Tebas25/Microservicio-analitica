@@ -14,6 +14,7 @@ class EventsEntity(BaseModel):
     fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     tipo_evento: str
     descripcion: str
+    cobot_id: str
 
     model_config = ConfigDict(
         populate_by_name=True,
