@@ -11,16 +11,20 @@ class EventRepository:
         result = await self.collection.insert_one(event_data)
         return str(result.inserted_id)
 
-    async def get_active_time(self, event_id: str):
+    async def get_active_time(self, event_id: str, cobot_id: str):
         """
         Obtener todas las fechas, odernardas de forma ascendente y forma descendente y retorna dos valores,
         uno de la primera fecha y otro de la última fecha
         """
         first_date = (
-            self.collection.find({"evento_id": event_id}).sort("fecha", 1).limit(1)
+            self.collection.find({"evento_id": event_id, "cobot_id": cobot_id})
+            .sort("fecha", 1)
+            .limit(1)
         )
         last_date = (
-            self.collection.find({"evento_id": event_id}).sort("fecha", -1).limit(1)
+            self.collection.find({"evento_id": event_id, "cobot_id": cobot_id})
+            .sort("fecha", -1)
+            .limit(1)
         )
 
         first_docs = await first_date.to_list(length=1)
