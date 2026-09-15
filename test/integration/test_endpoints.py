@@ -1,5 +1,6 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
+from app.db.session import get_databse
 from app.main import app
 
 
@@ -109,3 +110,6 @@ async def test_get_drinks_ranking_endpoint(async_client):
     data = response.json()
     assert data[0]["drink"] == "Ron"
     assert data[0]["number"] == 2
+
+    db = get_databse()
+    await db.get_collection("transacciones").delete_many({"evento_id": event_id})
