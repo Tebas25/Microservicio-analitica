@@ -23,5 +23,6 @@ class EventosResponseDTO(BaseModel):
     cobot_id: str
     fecha: datetime
     evento_id: str
+    cobot_id: str
     tipo_evento: TipoEvento
     descripcion: str

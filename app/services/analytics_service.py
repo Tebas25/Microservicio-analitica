@@ -13,9 +13,11 @@ class AnalyticsService:
         self.transaction_repository = transaction_repository
 
     async def obtain_transaction_metrics(
-        self, event_id: str
+        self, event_id: str, cobot_id: str
     ) -> DashboardSummaryResponseDTO:
-        first_date, last_date = await self.event_repository.get_active_time(event_id)
+        first_date, last_date = await self.event_repository.get_active_time(
+            event_id, cobot_id
+        )
 
         if first_date is None or last_date is None:
             total_time = "00:00:00"
@@ -27,7 +29,7 @@ class AnalyticsService:
             total_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
         sales_metrics: dict = await self.transaction_repository.obtain_sales_metrics(
-            event_id
+            event_id, cobot_id
         )
 
         return DashboardSummaryResponseDTO(

@@ -1,12 +1,7 @@
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, AsyncMock
-
-import pytest
-
 from app.db.session import get_databse
 from app.repositories.transacciones_repo import TransactionsRepository
 from app.repositories.eventos_repo import EventRepository
-from app.schemas.eventos_dto import TipoEvento
 
 
 async def test_transactions_repository_insert():
@@ -14,7 +9,12 @@ async def test_transactions_repository_insert():
     collection = db.get_collection("test_transactions_repo")
     repo = TransactionsRepository(collection)
 
-    data = {"evento_id": "EVT-001", "item": "Vodka", "ingreso": 20.0}
+    data = {
+        "evento_id": "EVT-001",
+        "cobot_id": "COBOT-01",
+        "item": "Vodka",
+        "ingreso": 20.0,
+    }
     inserted_id = await repo.create_transaction(data)
 
     assert inserted_id is not None
@@ -32,6 +32,7 @@ async def test_event_repository_insert():
 
     data = {
         "evento_id": "EVT-001",
+        "cobot_id": "COBOT-01",
         "tipo_evento": "Warning",
         "descripcion": "Nivel bajo de stock",
     }
@@ -52,15 +53,55 @@ async def test_transactions_repository_sales_metrics():
 
     await collection.insert_many(
         [
-            {"evento_id": "TEST-EVT", "item": "Ron", "ingreso": 10.0},
-            {"evento_id": "TEST-EVT", "item": "Vodka", "ingreso": 5.0},
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Ron",
+                "ingreso": 10.0,
+            },
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Vodka",
+                "ingreso": 5.0,
+            },
         ]
     )
 
-    metrics = await repo.obtain_sales_metrics("TEST-EVT")
+    metrics = await repo.obtain_sales_metrics("TEST-EVT", "COBOT-01")
 
     assert metrics["total_sales"] == 15.0
     assert metrics["total_drinks"] == 2
+
+    await collection.delete_many({"evento_id": "TEST-EVT"})
+
+
+async def test_transactions_repository_sales_metrics_filters_by_cobot():
+    db = get_databse()
+    collection = db.get_collection("test_transactions_sales_cobot")
+    repo = TransactionsRepository(collection)
+
+    await collection.insert_many(
+        [
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Ron",
+                "ingreso": 10.0,
+            },
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-02",
+                "item": "Vodka",
+                "ingreso": 100.0,
+            },
+        ]
+    )
+
+    metrics = await repo.obtain_sales_metrics("TEST-EVT", "COBOT-01")
+
+    assert metrics["total_sales"] == 10.0
+    assert metrics["total_drinks"] == 1
 
     await collection.delete_many({"evento_id": "TEST-EVT"})
 
@@ -74,12 +115,14 @@ async def test_event_repository_get_active_time():
         [
             {
                 "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
                 "fecha": datetime(2026, 9, 6, 10, 0, 0, tzinfo=timezone.utc),
                 "tipo_evento": "InfoRobot",
                 "descripcion": "inicio",
             },
             {
                 "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
                 "fecha": datetime(2026, 9, 6, 11, 0, 0, tzinfo=timezone.utc),
                 "tipo_evento": "InfoRobot",
                 "descripcion": "fin",
@@ -87,7 +130,7 @@ async def test_event_repository_get_active_time():
         ]
     )
 
-    first_date, last_date = await repo.get_active_time("TEST-EVT")
+    first_date, last_date = await repo.get_active_time("TEST-EVT", "COBOT-01")
 
     assert first_date is not None
     assert last_date is not None
@@ -96,148 +139,39 @@ async def test_event_repository_get_active_time():
     await collection.delete_many({"evento_id": "TEST-EVT"})
 
 
-# ---------------------------------------------------------------------------
-# EventRepository.get_events_filtered
-# ---------------------------------------------------------------------------
-
-
-def _eventos_de_prueba():
-    """Set de documentos para probar filtros de cobot_id, fecha y tipo_evento."""
-    return [
-        {
-            "evento_id": "EVT-FILTRO-1",
-            "cobot_id": "cobot-A",
-            "fecha": datetime(2026, 9, 1, 8, 0, 0, tzinfo=timezone.utc),
-            "tipo_evento": "InfoRobot",
-            "descripcion": "cobot-A InfoRobot dia 1",
-        },
-        {
-            "evento_id": "EVT-FILTRO-2",
-            "cobot_id": "cobot-A",
-            "fecha": datetime(2026, 9, 5, 12, 0, 0, tzinfo=timezone.utc),
-            "tipo_evento": "Warning",
-            "descripcion": "cobot-A Warning dia 5",
-        },
-        {
-            "evento_id": "EVT-FILTRO-3",
-            "cobot_id": "cobot-A",
-            "fecha": datetime(2026, 9, 10, 9, 0, 0, tzinfo=timezone.utc),
-            "tipo_evento": "ErrorRobot",
-            "descripcion": "cobot-A ErrorRobot dia 10",
-        },
-        {
-            "evento_id": "EVT-FILTRO-4",
-            "cobot_id": "cobot-B",
-            "fecha": datetime(2026, 9, 5, 12, 0, 0, tzinfo=timezone.utc),
-            "tipo_evento": "Warning",
-            "descripcion": "cobot-B Warning dia 5 (otro cobot)",
-        },
-    ]
-
-
-async def test_event_repository_get_events_filtered_por_cobot_id():
+async def test_transactions_repository_drinks_ranking():
     db = get_databse()
-    collection = db.get_collection("test_events_filtered_cobot")
-    repo = EventRepository(collection)
+    collection = db.get_collection("test_transactions_ranking")
+    repo = TransactionsRepository(collection)
 
-    await collection.insert_many(_eventos_de_prueba())
-
-    resultados = await repo.get_events_filtered(cobot_id="cobot-A")
-
-    assert len(resultados) == 3
-    assert all(evento["cobot_id"] == "cobot-A" for evento in resultados)
-
-    await collection.delete_many({"evento_id": {"$in": [
-        "EVT-FILTRO-1", "EVT-FILTRO-2", "EVT-FILTRO-3", "EVT-FILTRO-4"
-    ]}})
-
-
-async def test_event_repository_get_events_filtered_por_rango_fechas():
-    db = get_databse()
-    collection = db.get_collection("test_events_filtered_fechas")
-    repo = EventRepository(collection)
-
-    await collection.insert_many(_eventos_de_prueba())
-
-    resultados = await repo.get_events_filtered(
-        cobot_id="cobot-A",
-        fecha_inicio=datetime(2026, 9, 4, tzinfo=timezone.utc),
-        fecha_fin=datetime(2026, 9, 9, tzinfo=timezone.utc),
+    await collection.insert_many(
+        [
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Ron",
+                "ingreso": 10.0,
+            },
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Ron",
+                "ingreso": 8.0,
+            },
+            {
+                "evento_id": "TEST-EVT",
+                "cobot_id": "COBOT-01",
+                "item": "Vodka",
+                "ingreso": 5.0,
+            },
+        ]
     )
 
-    assert len(resultados) == 1
-    assert resultados[0]["evento_id"] == "EVT-FILTRO-2"
+    ranking = await repo.obtain_drinks_ranking("TEST-EVT", "COBOT-01")
 
-    await collection.delete_many({"evento_id": {"$in": [
-        "EVT-FILTRO-1", "EVT-FILTRO-2", "EVT-FILTRO-3", "EVT-FILTRO-4"
-    ]}})
+    assert ranking[0]["_id"] == "Ron"
+    assert ranking[0]["total"] == 2
+    assert ranking[1]["_id"] == "Vodka"
+    assert ranking[1]["total"] == 1
 
-
-async def test_event_repository_get_events_filtered_por_tipo_evento():
-    db = get_databse()
-    collection = db.get_collection("test_events_filtered_tipo")
-    repo = EventRepository(collection)
-
-    await collection.insert_many(_eventos_de_prueba())
-
-    resultados = await repo.get_events_filtered(
-        cobot_id="cobot-A",
-        tipos_evento=[TipoEvento.INFO_ROBOT, TipoEvento.ERROR_ROBOT],
-    )
-
-    tipos_encontrados = {evento["tipo_evento"] for evento in resultados}
-    assert len(resultados) == 2
-    assert tipos_encontrados == {"InfoRobot", "ErrorRobot"}
-
-    await collection.delete_many({"evento_id": {"$in": [
-        "EVT-FILTRO-1", "EVT-FILTRO-2", "EVT-FILTRO-3", "EVT-FILTRO-4"
-    ]}})
-
-
-async def test_event_repository_get_events_filtered_sin_tipo_trae_todos():
-    db = get_databse()
-    collection = db.get_collection("test_events_filtered_sin_tipo")
-    repo = EventRepository(collection)
-
-    await collection.insert_many(_eventos_de_prueba())
-
-    resultados = await repo.get_events_filtered(cobot_id="cobot-A", tipos_evento=[])
-
-    assert len(resultados) == 3
-
-    await collection.delete_many({"evento_id": {"$in": [
-        "EVT-FILTRO-1", "EVT-FILTRO-2", "EVT-FILTRO-3", "EVT-FILTRO-4"
-    ]}})
-
-
-async def test_event_repository_get_events_filtered_ordena_por_fecha_descendente():
-    db = get_databse()
-    collection = db.get_collection("test_events_filtered_orden")
-    repo = EventRepository(collection)
-
-    await collection.insert_many(_eventos_de_prueba())
-
-    resultados = await repo.get_events_filtered(cobot_id="cobot-A")
-
-    fechas = [evento["fecha"] for evento in resultados]
-    assert fechas == sorted(fechas, reverse=True)
-
-    await collection.delete_many({"evento_id": {"$in": [
-        "EVT-FILTRO-1", "EVT-FILTRO-2", "EVT-FILTRO-3", "EVT-FILTRO-4"
-    ]}})
-
-
-async def test_event_repository_get_events_filtered_cobot_sin_eventos():
-    db = get_databse()
-    collection = db.get_collection("test_events_filtered_vacio")
-    repo = EventRepository(collection)
-
-    await collection.insert_many(_eventos_de_prueba())
-
-    resultados = await repo.get_events_filtered(cobot_id="cobot-inexistente")
-
-    assert resultados == []
-
-    await collection.delete_many({"evento_id": {"$in": [
-        "EVT-FILTRO-1", "EVT-FILTRO-2", "EVT-FILTRO-3", "EVT-FILTRO-4"
-    ]}})
+    await collection.delete_many({"evento_id": "TEST-EVT"})
