@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.db.session import get_databse
@@ -113,3 +115,155 @@ async def test_get_drinks_ranking_endpoint(async_client):
 
     db = get_databse()
     await db.get_collection("transacciones").delete_many({"evento_id": event_id})
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/analytics/get-events
+# ---------------------------------------------------------------------------
+
+GET_EVENTS_PATH = "/api/v1/analytics/get-events"
+
+# AJUSTA este nombre al de la colección real que usa tu app en producción
+# (la misma que consulta get_events_service -> EventRepository).
+EVENTOS_COLLECTION_NAME = "eventos"
+
+def _eventos_de_prueba_endpoint():
+    """
+    Documentos insertados directamente en la colección (no vía el endpoint
+    de creación, porque este último no acepta cobot_id/fecha en su payload).
+    """
+    return [
+        {
+            "evento_id": "EVT-ENDPOINT-1",
+            "cobot_id": "cobot-endpoint",
+            "fecha": datetime(2026, 9, 1, 8, 0, 0, tzinfo=timezone.utc),
+            "tipo_evento": "InfoRobot",
+            "descripcion": "cobot-endpoint InfoRobot dia 1",
+        },
+        {
+            "evento_id": "EVT-ENDPOINT-2",
+            "cobot_id": "cobot-endpoint",
+            "fecha": datetime(2026, 9, 5, 12, 0, 0, tzinfo=timezone.utc),
+            "tipo_evento": "Warning",
+            "descripcion": "cobot-endpoint Warning dia 5",
+        },
+        {
+            "evento_id": "EVT-ENDPOINT-3",
+            "cobot_id": "cobot-endpoint-otro",
+            "fecha": datetime(2026, 9, 5, 12, 0, 0, tzinfo=timezone.utc),
+            "tipo_evento": "Warning",
+            "descripcion": "otro cobot, mismo dia",
+        },
+    ]
+
+
+@pytest.fixture
+async def eventos_insertados():
+    """Inserta eventos de prueba en la colección real y los limpia al final."""
+    db = get_databse()
+    collection = db.get_collection(EVENTOS_COLLECTION_NAME)
+
+    documentos = _eventos_de_prueba_endpoint()
+    await collection.insert_many(documentos)
+
+    yield documentos
+
+    await collection.delete_many(
+        {"evento_id": {"$in": [doc["evento_id"] for doc in documentos]}}
+    )
+
+
+async def test_get_events_requiere_cobot_id(async_client):
+    response = await async_client.get(GET_EVENTS_PATH)
+    assert response.status_code == 422
+
+
+async def test_get_events_devuelve_solo_los_del_cobot_id(
+        async_client, eventos_insertados
+):
+    response = await async_client.get(
+        GET_EVENTS_PATH, params={"cobot_id": "cobot-endpoint"}
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert all(evento["cobot_id"] == "cobot-endpoint" for evento in data)
+
+
+async def test_get_events_filtra_por_tipo_evento(async_client, eventos_insertados):
+    response = await async_client.get(
+        GET_EVENTS_PATH,
+        params={"cobot_id": "cobot-endpoint", "tipo_evento": "InfoRobot"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["evento_id"] == "EVT-ENDPOINT-1"
+
+
+async def test_get_events_multiples_tipo_evento(async_client, eventos_insertados):
+    response = await async_client.get(
+        GET_EVENTS_PATH,
+        params=[
+            ("cobot_id", "cobot-endpoint"),
+            ("tipo_evento", "InfoRobot"),
+            ("tipo_evento", "Warning"),
+        ],
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+
+
+async def test_get_events_filtra_por_rango_de_fechas(async_client, eventos_insertados):
+    response = await async_client.get(
+        GET_EVENTS_PATH,
+        params={
+            "cobot_id": "cobot-endpoint",
+            "fecha_inicio": "2026-09-04T00:00:00Z",
+            "fecha_fin": "2026-09-09T00:00:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["evento_id"] == "EVT-ENDPOINT-2"
+
+
+async def test_get_events_tipo_evento_invalido_devuelve_422(async_client):
+    response = await async_client.get(
+        GET_EVENTS_PATH,
+        params={"cobot_id": "cobot-endpoint", "tipo_evento": "NoExiste"},
+    )
+    assert response.status_code == 422
+
+
+async def test_get_events_cobot_sin_eventos_devuelve_lista_vacia(
+        async_client, eventos_insertados
+):
+    response = await async_client.get(
+        GET_EVENTS_PATH, params={"cobot_id": "cobot-sin-eventos"}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_get_events_respuesta_solo_tiene_campos_del_dto(
+        async_client, eventos_insertados
+):
+    response = await async_client.get(
+        GET_EVENTS_PATH, params={"cobot_id": "cobot-endpoint"}
+    )
+
+    data = response.json()[0]
+    assert set(data.keys()) == {
+        "cobot_id",
+        "fecha",
+        "evento_id",
+        "tipo_evento",
+        "descripcion",
+    }
